@@ -1,16 +1,17 @@
 package org.varun.uberbookingservice.Services;
 
 
+import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.varun.uberbookingservice.Apis.LocationServiceApi;
 import org.varun.uberbookingservice.Dto.*;
 
 import org.varun.uberbookingservice.Repository.BookingRepository;
+import org.varun.uberbookingservice.Repository.DriverRepository;
 import org.varun.uberbookingservice.Repository.PassengerRepository;
+import org.varun.uberentityservice.Models.*;
 import org.varun.uberentityservice.Models.Booking;
-import org.varun.uberentityservice.Models.BookingStatus;
-import org.varun.uberentityservice.Models.Passenger;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
@@ -25,13 +26,14 @@ public class BookingServiceImpl implements BookingService{
 
     private final PassengerRepository passengerRepository;
     private final BookingRepository bookingRepository;
-
+    private final DriverRepository driverRepository;
     private final LocationServiceApi locationServiceApi;
 
 
-    public BookingServiceImpl(PassengerRepository passengerRepository, BookingRepository bookingRepository,LocationServiceApi locationServiceApi) {
+    public BookingServiceImpl(PassengerRepository passengerRepository, BookingRepository bookingRepository, DriverRepository driverRepository, LocationServiceApi locationServiceApi) {
         this.passengerRepository = passengerRepository;
         this.bookingRepository = bookingRepository;
+        this.driverRepository = driverRepository;
         this.locationServiceApi = locationServiceApi;
 
 
@@ -74,7 +76,6 @@ public class BookingServiceImpl implements BookingService{
 
 
 
-
     /// THIS METHOD WILL ASYNC CALL LOCATION SERVICE TO GET DRIVER
     private void getNearByDrivers(NearByDriverRequestDTO requestDTO){
         Call<List<NearbyDriverRESPONSEdto>> call = locationServiceApi.getNearByDrivers(requestDTO);
@@ -102,5 +103,26 @@ public class BookingServiceImpl implements BookingService{
         });
     }
 
+
+
+    @Transactional
+    @Override
+    public UpdateBookingResponseDto updateBooking(Long bookingId, UpdateBookingRequestDto requestDto) throws Exception {
+
+        //try {
+            Optional<Driver> driver = driverRepository.findById(requestDto.getDriverId().get());
+            bookingRepository.updateBookingStatusAndDriverById(bookingId, BookingStatus.valueOf(requestDto.getStatus()), driver.get());
+            Optional<Booking> booking = bookingRepository.findById(bookingId);
+            return  UpdateBookingResponseDto.builder()
+                    .bookingId(bookingId)
+                    .status(booking.get().getBookingStatus())
+                    .driver(Optional.ofNullable(booking.get().getDriver()))
+                    .build();
+
+//        } catch (Exception e) {
+//            throw new Exception("Booking not Exisit with id : " + bookingId);
+//        }
+
+    }
 
 }
